@@ -2,6 +2,7 @@ const puppeteer = require('puppeteer');
 let elements = [];
 let clear;
 let cache = {};
+let combinations = 0;
 
 (async () => {
 
@@ -9,31 +10,40 @@ let cache = {};
   const page = await browser.newPage();
   await init(browser, page);
 
-  for (let i=0; i< 100; i++) {
+  elements = await getAllElements(page);
+  let prevCount = 0;
+
+  while (elements.length < 580) {
+
+    console.time('mixElements');
+    await mixAllElementsInLibrary(page);
+    console.timeEnd('mixElements');
     console.log('update elements');
+    prevCount = elements.length;
     elements = await getAllElements(page);
     console.log('#elements: ' + elements.length)
-    await mixAllElementsInLibrary(page);
+    if (prevCount === elements.length) {
+      console.log('reset cache');
+      console.log('=============');
+      cache = {};
+    }
   }
-
-  console.log('wall');
-  await clearWorkspace(page);
-  await delay(2000);
-  await putElementOnStage(page, '5');
-  await delay(2000)
-  await putElementOnStage(page, '4');
-  await delay(4000)
-
 })();
 
 mixAllElementsInLibrary = async (page) => {
+
+  let actualCount = 0;
+  let runCount = 0;
+
   for (const elementA of elements) {
     for (const elementB of elements) {
-      if (!isInCache(elementA, elementB)) {
 
+      runCount++;
+      if (!isInCache(elementA, elementB)) {
+        actualCount++;
+        combinations++;
         addToCache(elementA, elementB);
 
-        console.log({elementA, elementB})
         await putElementOnStage(page, elementA);
         await putElementOnStage(page, elementB);
         //wait delay(10);
@@ -41,6 +51,8 @@ mixAllElementsInLibrary = async (page) => {
       }
     }
   }
+
+  console.log({runCount, actualCount, combinations});
 }
 
 isInCache = (elementA, elementB) => cache[elementA] && cache[elementA][elementB];
@@ -93,7 +105,7 @@ function delay(time) {
 }
 
 getAllElements = async (page) => {
-  const sel = '#library .element';
+  const sel = '#library .element:not(.finalElement)';
 
   return await page.evaluate((sel) => {
     let HTMLelements = Array.from(document.querySelectorAll(sel));
